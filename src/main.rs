@@ -1,15 +1,24 @@
+use crate::camera::camera::spawn_camera;
+use crate::gameui::menu::{delete_menu, spawn_menu};
+use crate::player::player::{player_input, player_movement, spawn_player};
+use bevy::winit::WinitSettings;
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
     prelude::*,
     text::FontSmoothing,
 };
 
-use crate::player::player::{player_input, player_movement, spawn_player};
-
-use crate::camera::camera::spawn_camera;
-
 mod camera;
+mod gameui;
 mod player;
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
+pub enum AppState {
+    #[default]
+    MainMenu,
+    InGame,
+    Paused,
+}
 
 #[derive(Component, Default)]
 struct Velocity(Vec3);
@@ -44,8 +53,21 @@ fn main() {
             },
         },
     ))
-    .add_systems(Startup, setup)
-    .add_systems(Update, (player_input, player_movement));
+    // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+    .insert_resource(WinitSettings::desktop_app())
+    .init_state::<AppState>()
+    // We can add systems to trigger during transitions
+    .add_systems(OnEnter(AppState::MainMenu), spawn_menu)
+    .add_systems(OnExit(AppState::MainMenu), delete_menu)
+    .add_systems(
+        OnEnter(AppState::InGame),
+        setup.run_if(in_state(AppState::InGame)),
+    )
+    .add_systems(
+        Update,
+        (player_input, player_movement).run_if(in_state(AppState::InGame)),
+    );
+
     app.run();
 }
 
