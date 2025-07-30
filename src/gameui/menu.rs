@@ -1,13 +1,21 @@
-use crate::AppState;
-use bevy::{color::palettes::css::*, prelude::*};
+use crate::{AppState, MyAssets};
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
-pub struct MainMenuEntity;
+pub struct MainMenuScreen;
 
-pub fn spawn_menu(mut commands: Commands, assets: Res<AssetServer>) {
+pub struct MainMenuPlugin;
+
+impl Plugin for MainMenuPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(OnEnter(AppState::MainMenu), spawn_menu)
+            .add_systems(OnExit(AppState::MainMenu), delete_menu);
+    }
+}
+
+fn spawn_menu(mut commands: Commands, assets: Res<MyAssets>) {
     // Load the background texture
-    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuEntity));
-    let background_handle: Handle<Image> = assets.load("background.png");
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuScreen));
 
     // Fullscreen background node (no NodeBundle)
     commands
@@ -19,24 +27,24 @@ pub fn spawn_menu(mut commands: Commands, assets: Res<AssetServer>) {
                 ..default()
             },
             BackgroundColor(Color::BLACK), // fallback color if image fails
+            MainMenuScreen,
         ))
         .with_children(|parent| {
             parent.spawn((
-                ImageNode::new(background_handle.clone()),
+                MainMenuScreen,
+                ImageNode::new(assets.background.clone()),
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     position_type: PositionType::Absolute,
                     top: Val::Px(0.0),
                     left: Val::Px(0.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    aspect_ratio: Some(16.0 / 9.0), // maintain aspect ratio
                     ..default()
                 },
                 Interaction::default(),
-                Outline {
-                    width: Val::Px(2.),
-                    offset: Val::Px(2.),
-                    color: Color::NONE,
-                },
             ));
         });
 
@@ -46,52 +54,58 @@ pub fn spawn_menu(mut commands: Commands, assets: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 right: Val::Px(0.0),
-                width: Val::Percent(20.0),
+                width: Val::Percent(25.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column, // stack children vertically
-                justify_content: JustifyContent::FlexStart, // align children at top
-                column_gap: Val::Px(10.0), // space between buttons
-                align_items: AlignItems::Center, // center children horizontally
+                justify_content: JustifyContent::Center, // center children vertically
+                align_items: AlignItems::Center,       // center children horizontally
+                row_gap: Val::Px(10.0),                // space between buttons
                 // Set other fields if needed, or ...Default
                 ..default()
             },
             // rgb(244, 144, 183)
-            BackgroundColor(Color::srgba(
-                244.0 / 255.0,
-                144.0 / 255.0,
-                183.0 / 255.0,
-                0.75,
-            )), // fallback color if image fails
+            BackgroundColor(Color::srgb(244.0 / 255.0, 144.0 / 255.0, 183.0 / 255.0)), // fallback color if image fails
+            MainMenuScreen,
         ))
         .with_children(|parent| {
             parent
-                .spawn((MainMenuEntity, play_button(&assets)))
-                .observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut state: ResMut<NextState<AppState>>| {
-                        trigger.propagate(false);
-                        // let event = trigger.event();
-                        // let target = event.target;
-                        state.set(AppState::InGame);
+                .spawn((
+                    MainMenuScreen,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.0), // space between buttons
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        // position_type: PositionType::Absolute,
+                        ..default()
                     },
-                );
-            parent
-                .spawn((MainMenuEntity, exit_button(&assets)))
-                .observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut state: ResMut<NextState<AppState>>| {
-                        trigger.propagate(false);
+                ))
+                .with_children(|child_parent| {
+                    child_parent.spawn((MainMenuScreen, play_button())).observe(
+                        |mut trigger: Trigger<Pointer<Released>>,
+                         mut state: ResMut<NextState<AppState>>| {
+                            trigger.propagate(false);
+                            // let event = trigger.event();
+                            // let target = event.target;
+                            state.set(AppState::InGame);
+                        },
+                    );
+                    child_parent.spawn((MainMenuScreen, exit_button())).observe(
+                        |mut trigger: Trigger<Pointer<Released>>,
+                         mut state: ResMut<NextState<AppState>>| {
+                            trigger.propagate(false);
 
-                        // exit the bevy app
-                        std::process::exit(0);
-                    },
-                );
+                            // exit the bevy app
+                            std::process::exit(0);
+                        },
+                    );
+                });
         });
 
     //
 }
 
-fn play_button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn play_button() -> impl Bundle + use<> {
     (
         Node {
             width: Val::Percent(100.0),
@@ -128,14 +142,13 @@ fn play_button(asset_server: &AssetServer) -> impl Bundle + use<> {
     )
 }
 
-fn exit_button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn exit_button() -> impl Bundle + use<> {
     (
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            // position_type: PositionType::Absolute,
             ..default()
         },
         children![(
@@ -165,9 +178,8 @@ fn exit_button(asset_server: &AssetServer) -> impl Bundle + use<> {
     )
 }
 
-pub fn delete_menu(mut commands: Commands, query: Query<Entity, With<MainMenuEntity>>) {
+fn delete_menu(mut commands: Commands, query: Query<Entity, With<MainMenuScreen>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
-    println!("Main menu entities despawned.");
 }

@@ -9,4 +9,4 @@ bevy_asset_loader = "0.23.0"
 
 
 [profile.dev]
-opt-level = 1
+opt-level = 3

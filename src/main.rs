@@ -1,6 +1,8 @@
+use crate::booting::boot_screen::BootPlugin;
 use crate::camera::camera::spawn_camera;
-use crate::gameui::menu::{delete_menu, spawn_menu};
+use crate::gameui::menu::MainMenuPlugin;
 use crate::player::player::{player_input, player_movement, spawn_player};
+use crate::window::window::CustomWindowPlugin;
 use bevy::winit::WinitSettings;
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
@@ -9,9 +11,11 @@ use bevy::{
 };
 use bevy_asset_loader::prelude::*;
 
+mod booting;
 mod camera;
 mod gameui;
 mod player;
+mod window;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
 pub enum AppState {
@@ -23,11 +27,9 @@ pub enum AppState {
     Paused,
 }
 
-#[derive(Component, Default)]
-struct Velocity(Vec3);
 
 #[derive(Resource, Default, AssetCollection)]
-struct MyAssets {
+pub struct MyAssets {
     #[asset(path = "background.png")]
     background: Handle<Image>,
 }
@@ -62,7 +64,8 @@ fn main() {
             },
         },
     ))
-    .insert_resource(WinitSettings::desktop_app())
+    // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+    .insert_resource(WinitSettings::game())
     .init_state::<AppState>()
     .add_loading_state(
         LoadingState::new(AppState::BootingApp)
@@ -70,11 +73,9 @@ fn main() {
             .on_failure_continue_to_state(AppState::ErrorScreen)
             .load_collection::<MyAssets>(),
     )
-    .add_systems(OnEnter(AppState::BootingApp), boot_loading_screen)
-    // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-    // We can add systems to trigger during transitions
-    .add_systems(OnEnter(AppState::MainMenu), spawn_menu)
-    .add_systems(OnExit(AppState::MainMenu), delete_menu)
+    .add_plugins(BootPlugin)
+    .add_plugins(CustomWindowPlugin)
+    .add_plugins(MainMenuPlugin)
     .add_systems(
         OnEnter(AppState::InGame),
         setup.run_if(in_state(AppState::InGame)),
@@ -94,18 +95,4 @@ pub fn setup(
 ) {
     spawn_camera(&mut commands);
     spawn_player(&mut commands, &mut meshes, &mut materials);
-}
-
-pub fn boot_loading_screen(mut commands: Commands) {
-    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0)));
-
-    // Spawn a simple 2D sprite as a loading screen
-    commands.spawn((
-        Text::new("Loading..."),
-        TextFont {
-            font_size: 32.0,
-            ..default()
-        },
-        BackgroundColor(Color::WHITE),
-    ));
 }

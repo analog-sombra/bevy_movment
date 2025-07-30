@@ -1,10 +1,13 @@
 use bevy::prelude::*;
 
-use crate::Velocity;
+#[derive(Component, Default)]
+pub struct Velocity(Vec3);
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Component)]
 pub struct Player;
+
+const SPEED: f32 = 5.0;
 
 pub fn spawn_player(
     commands: &mut Commands,
