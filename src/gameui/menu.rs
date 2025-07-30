@@ -7,7 +7,7 @@ pub struct MainMenuEntity;
 pub fn spawn_menu(mut commands: Commands, assets: Res<AssetServer>) {
     // Load the background texture
     commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuEntity));
-    let background_handle: Handle<Image> = assets.load("background.jpg");
+    let background_handle: Handle<Image> = assets.load("background.png");
 
     // Fullscreen background node (no NodeBundle)
     commands

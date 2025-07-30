@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.16.1", features = ["bevy_dev_tools", "jpeg"] }
+bevy_asset_loader = "0.23.0"
 
 
 [profile.dev]

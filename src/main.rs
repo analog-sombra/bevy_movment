@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     text::FontSmoothing,
 };
+use bevy_asset_loader::prelude::*;
 
 mod camera;
 mod gameui;
@@ -15,6 +16,8 @@ mod player;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
 pub enum AppState {
     #[default]
+    BootingApp,
+    ErrorScreen,
     MainMenu,
     InGame,
     Paused,
@@ -22,6 +25,12 @@ pub enum AppState {
 
 #[derive(Component, Default)]
 struct Velocity(Vec3);
+
+#[derive(Resource, Default, AssetCollection)]
+struct MyAssets {
+    #[asset(path = "background.png")]
+    background: Handle<Image>,
+}
 
 fn main() {
     let mut app = App::new();
@@ -53,9 +62,16 @@ fn main() {
             },
         },
     ))
-    // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
     .insert_resource(WinitSettings::desktop_app())
     .init_state::<AppState>()
+    .add_loading_state(
+        LoadingState::new(AppState::BootingApp)
+            .continue_to_state(AppState::MainMenu)
+            .on_failure_continue_to_state(AppState::ErrorScreen)
+            .load_collection::<MyAssets>(),
+    )
+    .add_systems(OnEnter(AppState::BootingApp), boot_loading_screen)
+    // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
     // We can add systems to trigger during transitions
     .add_systems(OnEnter(AppState::MainMenu), spawn_menu)
     .add_systems(OnExit(AppState::MainMenu), delete_menu)
@@ -78,4 +94,18 @@ pub fn setup(
 ) {
     spawn_camera(&mut commands);
     spawn_player(&mut commands, &mut meshes, &mut materials);
+}
+
+pub fn boot_loading_screen(mut commands: Commands) {
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0)));
+
+    // Spawn a simple 2D sprite as a loading screen
+    commands.spawn((
+        Text::new("Loading..."),
+        TextFont {
+            font_size: 32.0,
+            ..default()
+        },
+        BackgroundColor(Color::WHITE),
+    ));
 }
