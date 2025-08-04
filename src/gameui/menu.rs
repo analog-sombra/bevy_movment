@@ -1,5 +1,6 @@
 use crate::{AppState, MyAssets};
 use bevy::prelude::*;
+use bevy_simple_subsecond_system::hot;
 
 #[derive(Component, Default)]
 pub struct MainMenuScreen;
@@ -13,6 +14,7 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
+#[hot]
 fn spawn_menu(mut commands: Commands, assets: Res<MyAssets>) {
     // Load the background texture
     commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuScreen));
@@ -81,13 +83,32 @@ fn spawn_menu(mut commands: Commands, assets: Res<MyAssets>) {
                     },
                 ))
                 .with_children(|child_parent| {
+                    child_parent.spawn((
+                        MainMenuScreen,
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                        children![(
+                            Text::new("MENU"),
+                            TextFont {
+                                font_size: 22.0,
+                                ..default()
+                            },
+                            // rgb(255, 255, 255)
+                            TextColor(Color::srgb(255.0 / 255.0, 255.0 / 255.0, 255.0 / 255.0)),
+                        )],
+                    ));
                     child_parent.spawn((MainMenuScreen, play_button())).observe(
                         |mut trigger: Trigger<Pointer<Released>>,
                          mut state: ResMut<NextState<AppState>>| {
                             trigger.propagate(false);
                             // let event = trigger.event();
                             // let target = event.target;
-                            state.set(AppState::InGame);
+                            state.set(AppState::InGameLoading);
                         },
                     );
                     child_parent.spawn((MainMenuScreen, exit_button())).observe(

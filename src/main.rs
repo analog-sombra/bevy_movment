@@ -1,7 +1,6 @@
 use crate::booting::boot_screen::BootPlugin;
-use crate::camera::camera::spawn_camera;
 use crate::gameui::menu::MainMenuPlugin;
-use crate::player::player::{player_input, player_movement, spawn_player};
+use crate::player::player::PlayerPlugin;
 use crate::window::window::CustomWindowPlugin;
 use bevy::winit::WinitSettings;
 use bevy::{
@@ -10,6 +9,7 @@ use bevy::{
     text::FontSmoothing,
 };
 use bevy_asset_loader::prelude::*;
+use bevy_simple_subsecond_system::prelude::*;
 
 mod booting;
 mod camera;
@@ -20,18 +20,23 @@ mod window;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
 pub enum AppState {
     #[default]
+    Restarting,
     BootingApp,
     ErrorScreen,
     MainMenu,
+    InGameLoading,
     InGame,
     Paused,
 }
-
 
 #[derive(Resource, Default, AssetCollection)]
 pub struct MyAssets {
     #[asset(path = "background.png")]
     background: Handle<Image>,
+    #[asset(path = "ground.png")]
+    ground: Handle<Image>,
+    #[asset(path = "apple.png")]
+    apple: Handle<Image>,
 }
 
 fn main() {
@@ -64,6 +69,7 @@ fn main() {
             },
         },
     ))
+    .add_plugins(SimpleSubsecondPlugin::default())
     // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
     .insert_resource(WinitSettings::game())
     .init_state::<AppState>()
@@ -73,26 +79,23 @@ fn main() {
             .on_failure_continue_to_state(AppState::ErrorScreen)
             .load_collection::<MyAssets>(),
     )
+    .add_systems(OnEnter(AppState::Restarting), go_to_running)
+    .add_systems(PreUpdate, detect_restart_key)
     .add_plugins(BootPlugin)
     .add_plugins(CustomWindowPlugin)
     .add_plugins(MainMenuPlugin)
-    .add_systems(
-        OnEnter(AppState::InGame),
-        setup.run_if(in_state(AppState::InGame)),
-    )
-    .add_systems(
-        Update,
-        (player_input, player_movement).run_if(in_state(AppState::InGame)),
-    );
+    .add_plugins(PlayerPlugin);
 
     app.run();
 }
 
-pub fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    spawn_camera(&mut commands);
-    spawn_player(&mut commands, &mut meshes, &mut materials);
+fn go_to_running(mut next: ResMut<NextState<AppState>>) {
+    next.set(AppState::BootingApp);
+}
+
+fn detect_restart_key(keys: Res<ButtonInput<KeyCode>>, mut next: ResMut<NextState<AppState>>) {
+    if keys.just_pressed(KeyCode::F2) {
+        println!("F2 pressed → restarting...");
+        next.set(AppState::Restarting);
+    }
 }
