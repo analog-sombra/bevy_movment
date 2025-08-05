@@ -29,6 +29,15 @@ pub enum AppState {
     Paused,
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
+#[source(AppState = AppState::InGame)]
+#[states(scoped_entities)]
+pub enum IsPaused {
+    #[default]
+    Running,
+    Paused,
+}
+
 #[derive(Resource, Default, AssetCollection)]
 pub struct MyAssets {
     #[asset(path = "background.png")]
@@ -73,6 +82,7 @@ fn main() {
     // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
     .insert_resource(WinitSettings::game())
     .init_state::<AppState>()
+    .add_sub_state::<IsPaused>()
     .add_loading_state(
         LoadingState::new(AppState::BootingApp)
             .continue_to_state(AppState::MainMenu)

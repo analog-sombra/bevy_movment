@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::{prelude::*, window};
 
-use crate::{AppState, MyAssets, camera::camera::spawn_camera};
+use crate::{AppState, IsPaused, MyAssets, camera::camera::spawn_camera};
 
 // #[derive(Component, Default)]
 // pub struct Velocity(Vec3);
@@ -41,9 +41,11 @@ impl Plugin for PlayerPlugin {
             Update,
             transition_to_ingame.run_if(in_state(AppState::InGameLoading)),
         )
+        .add_systems(Update, (toggle_pause).run_if(in_state(AppState::InGame)))
+        .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
         .add_systems(
             Update,
-            (player_input, player_movement).run_if(in_state(AppState::InGame)),
+            (player_input, player_movement).run_if(in_state(IsPaused::Running)),
         );
     }
 }
@@ -196,4 +198,53 @@ fn transition_to_ingame(
             next_state.set(AppState::InGame);
         }
     }
+}
+
+fn toggle_pause(
+    input: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<IsPaused>>,
+    mut next_state: ResMut<NextState<IsPaused>>,
+) {
+    if input.just_pressed(KeyCode::Escape) {
+        next_state.set(match current_state.get() {
+            IsPaused::Running => IsPaused::Paused,
+            IsPaused::Paused => IsPaused::Running,
+        });
+    }
+}
+
+pub fn setup_paused_screen(mut commands: Commands) {
+    commands.spawn((
+        StateScoped(IsPaused::Paused),
+        Node {
+            // center button
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.),
+            ..default()
+        },
+        children![(
+            Node {
+                width: Val::Px(400.),
+                height: Val::Px(400.),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            children![(
+                Text::new("Paused"),
+                TextFont {
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            )]
+        )],
+    ));
 }
