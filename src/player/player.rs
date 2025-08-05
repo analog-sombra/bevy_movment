@@ -92,7 +92,7 @@ pub fn spawn_player(
             ));
         }
     }
-    let shape = Rectangle::new(20., 20.);
+    let shape = Rectangle::new(40., 40.);
     // rgb(65, 171, 93)
     let color = Color::srgb(65.0, 171.0, 93.0);
     commands.spawn((
@@ -108,16 +108,33 @@ pub fn spawn_player(
     let apple_texture = assets.apple.clone();
     // spawn food on random place in screen
 
-    commands.spawn((
-        Food,
-        Sprite::from_image(apple_texture),
-        Transform::from_xyz(
-            rand::random::<f32>() * window_w - window_w / 2.0,
-            rand::random::<f32>() * window_h - window_h / 2.0,
-            10.0,
-        ),
-        GlobalTransform::default(),
-    ));
+    // Spawn food sprite with a red border
+    let food_entity = commands
+        .spawn((
+            Food,
+            Sprite::from_image(apple_texture),
+            Transform::from_xyz(
+                rand::random::<f32>() * window_w - window_w / 2.0,
+                rand::random::<f32>() * window_h - window_h / 2.0,
+                10.0,
+            ),
+            GlobalTransform::default(),
+        ))
+        .id();
+
+    // Add a child entity for the red border
+    commands.entity(food_entity).with_children(|parent| {
+        parent.spawn((
+            Sprite {
+                color: Color::srgb(255., 0., 0.),
+                custom_size: Some(Vec2::new(34.0, 34.0)), // slightly larger than food
+                ..Default::default()
+            },
+            Transform::from_xyz(0.0, 0.0, -0.1), // behind the food sprite
+            GlobalTransform::default(),
+            Visibility::default(),
+        ));
+    });
 }
 
 pub fn player_input(
@@ -141,6 +158,7 @@ pub fn player_movement(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Direction), With<Player>>,
     window: Query<&Window>,
+    food: Query<&Transform, With<Food>>,
 ) {
     if let Ok((mut transform, direction)) = query.single_mut() {
         let mut translation = transform.translation;
@@ -152,6 +170,14 @@ pub fn player_movement(
         }
         transform.translation = translation;
     }
+
+    // get food location
+    if let Ok(food_transform) = food.single() {
+        let food_pos = food_transform.translation;
+        // You can now use food_pos for collision detection or other logic
+    }
+
+    // add collision with food if player collides with food, respawn food at random position
 }
 
 fn transition_to_ingame(
