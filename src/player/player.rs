@@ -26,6 +26,9 @@ pub struct Player;
 pub struct Ground;
 
 #[derive(Component)]
+pub struct InGameEntity;
+
+#[derive(Component)]
 pub struct Food;
 const SPEED: f32 = 80.0;
 
@@ -37,6 +40,7 @@ impl Plugin for PlayerPlugin {
             OnEnter(AppState::InGame),
             setup.run_if(in_state(AppState::InGame)),
         )
+        .add_systems(OnExit(AppState::InGame), teardown_game_object)
         .add_systems(
             Update,
             transition_to_ingame.run_if(in_state(AppState::InGameLoading)),
@@ -57,7 +61,6 @@ pub fn setup(
     assets: Res<MyAssets>,
     window: Query<&Window>,
 ) {
-    spawn_camera(&mut commands);
     spawn_player(&mut commands, &mut meshes, &mut materials, assets, window);
 }
 
@@ -87,6 +90,7 @@ pub fn spawn_player(
             let y_pos = start_y + y as f32 * ground_size;
 
             commands.spawn((
+                InGameEntity,
                 Sprite::from_image(ground_texture.clone()),
                 Transform::from_xyz(x_pos, y_pos, 0.0),
                 GlobalTransform::default(),
@@ -98,6 +102,7 @@ pub fn spawn_player(
     // rgb(65, 171, 93)
     let color = Color::srgb(65.0, 171.0, 93.0);
     commands.spawn((
+        InGameEntity,
         Player,
         Direction::default(),
         Mesh2d(meshes.add(shape)),
@@ -111,6 +116,7 @@ pub fn spawn_player(
     // spawn food on random place in screen
 
     commands.spawn((
+        InGameEntity,
         Food,
         Sprite::from_image(apple_texture),
         Transform::from_xyz(
@@ -120,6 +126,12 @@ pub fn spawn_player(
         ),
         GlobalTransform::default(),
     ));
+}
+
+fn teardown_game_object(mut commands: Commands, query: Query<Entity, With<InGameEntity>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 pub fn player_input(
@@ -188,37 +200,94 @@ fn toggle_pause(
 }
 
 pub fn setup_paused_screen(mut commands: Commands) {
-    commands.spawn((
-        StateScoped(IsPaused::Paused),
-        Node {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..default()
-        },
-        children![(
+    commands
+        .spawn((
+            StateScoped(IsPaused::Paused),
             Node {
-                width: Val::Px(400.),
-                height: Val::Px(400.),
-                // horizontally center child text
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            children![(
-                Text::new("Paused"),
-                TextFont {
-                    font_size: 33.0,
+        ))
+        .with_children(|p| {
+            p.spawn((
+                Node {
+                    width: Val::Px(400.),
+                    height: Val::Px(400.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.0),
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            )]
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            ))
+            .with_children(|p| {
+                p.spawn(create_menu_button("Resume")).observe(
+                    |mut trigger: Trigger<Pointer<Released>>,
+                     mut next: ResMut<NextState<IsPaused>>| {
+                        trigger.propagate(false);
+                        next.set(IsPaused::Running)
+                    },
+                );
+
+                // Restart the Game
+                p.spawn(create_menu_button("Restart")).observe(
+                    |mut trigger: Trigger<Pointer<Released>>,
+                     mut next: ResMut<NextState<AppState>>| {
+                        trigger.propagate(false);
+                        next.set(AppState::InGameLoading)
+                    },
+                );
+
+                // Go to Main Menu
+                p.spawn(create_menu_button("Menu")).observe(
+                    |mut trigger: Trigger<Pointer<Released>>,
+                     mut next: ResMut<NextState<AppState>>| {
+                        trigger.propagate(false);
+                        next.set(AppState::MainMenu)
+                    },
+                );
+
+                // Exit Button
+                p.spawn(create_menu_button("Exit")).observe(
+                    |mut trigger: Trigger<Pointer<Released>>| {
+                        trigger.propagate(false);
+                        std::process::exit(0);
+                    },
+                );
+            });
+        });
+}
+
+// Helper function to create button
+fn create_menu_button(text: &str) -> impl Bundle {
+    (
+        // MainMenuButton,
+        Node {
+            width: Val::Px(150.0),
+            height: Val::Px(65.0),
+            border: UiRect::all(Val::Px(5.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BorderColor(Color::WHITE),
+        BorderRadius::all(Val::Percent(10.0)),
+        BackgroundColor(Color::srgb(0.2, 0.2, 0.2).into()),
+        Button,
+        children![(
+            Text::new(text),
+            TextFont {
+                font_size: 18.0,
+                ..default()
+            },
         )],
-    ));
+    )
 }

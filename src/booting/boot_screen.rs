@@ -14,10 +14,11 @@ impl Plugin for BootPlugin {
 }
 
 fn boot_loading_screen(mut commands: Commands) {
+    // Immortal camera object persist across state
     commands.spawn((
         Camera2d,
         Transform::from_xyz(0.0, 0.0, 0.0),
-        BootLoadingScreen,
+        // BootLoadingScreen,
     ));
 
     // Spawn a simple 2D sprite as a loading screen

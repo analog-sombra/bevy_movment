@@ -17,7 +17,7 @@ impl Plugin for MainMenuPlugin {
 #[hot]
 fn spawn_menu(mut commands: Commands, assets: Res<MyAssets>) {
     // Load the background texture
-    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuScreen));
+    // commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 0.0), MainMenuScreen));
 
     // Fullscreen background node (no NodeBundle)
     commands
