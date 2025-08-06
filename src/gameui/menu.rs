@@ -112,8 +112,7 @@ fn spawn_menu(mut commands: Commands, assets: Res<MyAssets>) {
                         },
                     );
                     child_parent.spawn((MainMenuScreen, exit_button())).observe(
-                        |mut trigger: Trigger<Pointer<Released>>,
-                         mut state: ResMut<NextState<AppState>>| {
+                        |mut trigger: Trigger<Pointer<Released>>| {
                             trigger.propagate(false);
 
                             // exit the bevy app

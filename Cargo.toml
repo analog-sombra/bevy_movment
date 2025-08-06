@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+avian2d = "0.3.1"
 bevy = { version = "0.16.1", features = ["bevy_dev_tools", "jpeg"] }
 bevy_asset_loader = "0.23.0"
 bevy_simple_subsecond_system = "0.2.0"

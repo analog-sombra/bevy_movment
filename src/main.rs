@@ -2,6 +2,7 @@ use crate::booting::boot_screen::BootPlugin;
 use crate::gameui::menu::MainMenuPlugin;
 use crate::player::player::PlayerPlugin;
 use crate::window::window::CustomWindowPlugin;
+use avian2d::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
@@ -79,6 +80,7 @@ fn main() {
         },
     ))
     .add_plugins(SimpleSubsecondPlugin::default())
+    .add_plugins((PhysicsPlugins::default(), PhysicsDebugPlugin::default()))
     // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
     .insert_resource(WinitSettings::game())
     .init_state::<AppState>()

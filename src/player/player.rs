@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, window};
-
-use crate::{AppState, IsPaused, MyAssets, camera::camera::spawn_camera};
+use crate::{AppState, IsPaused, MyAssets};
+use avian2d::prelude::*;
+use bevy::prelude::*;
 
 // #[derive(Component, Default)]
 // pub struct Velocity(Vec3);
@@ -49,7 +49,8 @@ impl Plugin for PlayerPlugin {
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
         .add_systems(
             Update,
-            (player_input, player_movement).run_if(in_state(IsPaused::Running)),
+            (player_input, player_movement, food_collision_system)
+                .run_if(in_state(IsPaused::Running)),
         );
     }
 }
@@ -61,14 +62,19 @@ pub fn setup(
     assets: Res<MyAssets>,
     window: Query<&Window>,
 ) {
-    spawn_player(&mut commands, &mut meshes, &mut materials, assets, window);
+    let get_window = window.single().unwrap();
+    let window_h = get_window.resolution.height();
+    let window_w = get_window.resolution.width();
+
+    spawn_player(&mut commands, &mut meshes, &mut materials, &assets, window);
+    spawn_food(&mut commands, &assets, window_w, window_h);
 }
 
 pub fn spawn_player(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
-    assets: Res<MyAssets>,
+    assets: &MyAssets,
     window: Query<&Window>,
 ) {
     let window = window.single().unwrap();
@@ -110,38 +116,55 @@ pub fn spawn_player(
         Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         GlobalTransform::default(),
         Visibility::default(),
+        Collider::rectangle(40., 40.),
+        CollisionEventsEnabled,
     ));
+}
 
+fn spawn_food(commands: &mut Commands, assets: &MyAssets, window_w: f32, window_h: f32) {
     let apple_texture = assets.apple.clone();
-    // spawn food on random place in screen
 
-    // Spawn food sprite with a red border
-    let food_entity = commands
-        .spawn((
-            Food,
-            Sprite::from_image(apple_texture),
-            Transform::from_xyz(
-                rand::random::<f32>() * window_w - window_w / 2.0,
-                rand::random::<f32>() * window_h - window_h / 2.0,
-                10.0,
-            ),
-            GlobalTransform::default(),
-        ))
-        .id();
+    commands.spawn((
+        Food,
+        Sprite::from_image(apple_texture),
+        Transform::from_xyz(
+            rand::random::<f32>() * window_w - window_w / 2.0,
+            rand::random::<f32>() * window_h - window_h / 2.0,
+            10.0,
+        ),
+        GlobalTransform::default(),
+        Collider::rectangle(32., 32.),
+    ));
+}
 
-    // Add a child entity for the red border
-    commands.entity(food_entity).with_children(|parent| {
-        parent.spawn((
-            Sprite {
-                color: Color::srgb(255., 0., 0.),
-                custom_size: Some(Vec2::new(34.0, 34.0)), // slightly larger than food
-                ..Default::default()
-            },
-            Transform::from_xyz(0.0, 0.0, -0.1), // behind the food sprite
-            GlobalTransform::default(),
-            Visibility::default(),
-        ));
-    });
+fn food_collision_system(
+    mut collision_event_reader: EventReader<CollisionStarted>,
+    mut commands: Commands,
+    player_query: Query<(), With<Player>>,
+    food_query: Query<(), With<Food>>,
+    assets: Res<MyAssets>,  // ⬅ asset for apple
+    window: Query<&Window>, // ⬅ to get screen size
+) {
+    for CollisionStarted(entity1, entity2) in collision_event_reader.read() {
+        let is_entity1_player = player_query.get(*entity1).is_ok();
+        let is_entity2_player = player_query.get(*entity2).is_ok();
+
+        let is_entity1_food = food_query.get(*entity1).is_ok();
+        let is_entity2_food = food_query.get(*entity2).is_ok();
+
+        let window = window.single().unwrap();
+        let window_h = window.resolution.height();
+        let window_w = window.resolution.width();
+        // Despawn the food if player collides with it
+        if is_entity1_player && is_entity2_food {
+            commands.entity(*entity2).despawn();
+            println!("Player ate food (entity {:?})", entity2);
+        } else if is_entity2_player && is_entity1_food {
+            commands.entity(*entity1).despawn();
+            println!("Player ate food (entity {:?})", entity1);
+        }
+        spawn_food(&mut commands, &assets, window_w, window_h);
+    }
 }
 
 fn teardown_game_object(mut commands: Commands, query: Query<Entity, With<InGameEntity>>) {
@@ -170,8 +193,7 @@ pub fn player_input(
 pub fn player_movement(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Direction), With<Player>>,
-    window: Query<&Window>,
-    food: Query<&Transform, With<Food>>,
+    _window: Query<&Window>,
 ) {
     if let Ok((mut transform, direction)) = query.single_mut() {
         let mut translation = transform.translation;
@@ -183,14 +205,6 @@ pub fn player_movement(
         }
         transform.translation = translation;
     }
-
-    // get food location
-    if let Ok(food_transform) = food.single() {
-        let food_pos = food_transform.translation;
-        // You can now use food_pos for collision detection or other logic
-    }
-
-    // add collision with food if player collides with food, respawn food at random position
 }
 
 fn transition_to_ingame(
