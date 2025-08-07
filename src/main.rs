@@ -1,5 +1,6 @@
 use crate::booting::boot_screen::BootPlugin;
 use crate::gameui::menu::MainMenuPlugin;
+use crate::gameui::pause::PauseMenuPlugin;
 use crate::player::player::PlayerPlugin;
 use crate::window::window::CustomWindowPlugin;
 use avian2d::prelude::*;
@@ -28,6 +29,7 @@ pub enum AppState {
     InGameLoading,
     InGame,
     Paused,
+    GameOver,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
@@ -96,7 +98,8 @@ fn main() {
     .add_plugins(BootPlugin)
     .add_plugins(CustomWindowPlugin)
     .add_plugins(MainMenuPlugin)
-    .add_plugins(PlayerPlugin);
+    .add_plugins(PlayerPlugin)
+    .add_plugins(PauseMenuPlugin);
 
     app.run();
 }

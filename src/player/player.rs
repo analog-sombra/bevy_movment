@@ -1,14 +1,13 @@
 use std::time::Duration;
-
-use crate::{AppState, IsPaused, MyAssets};
+use crate::{player::food::{spawn_food, Food}, AppState, IsPaused, MyAssets};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
-// #[derive(Component, Default)]
-// pub struct Velocity(Vec3);
 
 #[derive(Component, Default)]
 pub struct Direction(DIRECTION);
+
+
 #[derive(Default, PartialEq)]
 pub enum DIRECTION {
     #[default]
@@ -28,11 +27,16 @@ pub struct Ground;
 #[derive(Component)]
 pub struct InGameEntity;
 
-#[derive(Component)]
-pub struct Food;
-const SPEED: f32 = 80.0;
+
+const SPEED: f32 = 140.0;
 
 pub struct PlayerPlugin;
+
+#[derive(Component)]
+pub struct Score(u32);
+
+#[derive(Component)]
+pub struct ScoreText;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
@@ -45,8 +49,6 @@ impl Plugin for PlayerPlugin {
             Update,
             transition_to_ingame.run_if(in_state(AppState::InGameLoading)),
         )
-        .add_systems(Update, (toggle_pause).run_if(in_state(AppState::InGame)))
-        .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
         .add_systems(
             Update,
             (player_input, player_movement, food_collision_system)
@@ -61,13 +63,14 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Res<MyAssets>,
     window: Query<&Window>,
+    player_query: Query<&Transform, With<Player>>,
 ) {
     let get_window = window.single().unwrap();
     let window_h = get_window.resolution.height();
     let window_w = get_window.resolution.width();
 
     spawn_player(&mut commands, &mut meshes, &mut materials, &assets, window);
-    spawn_food(&mut commands, &assets, window_w, window_h);
+    spawn_food(&mut commands, &assets, window_w, window_h, &player_query);
 }
 
 pub fn spawn_player(
@@ -119,31 +122,36 @@ pub fn spawn_player(
         Collider::rectangle(40., 40.),
         CollisionEventsEnabled,
     ));
-}
 
-fn spawn_food(commands: &mut Commands, assets: &MyAssets, window_w: f32, window_h: f32) {
-    let apple_texture = assets.apple.clone();
+    let text_font = TextFont {
+        font_size: 40.0,
+        ..default()
+    };
 
     commands.spawn((
-        Food,
-        Sprite::from_image(apple_texture),
-        Transform::from_xyz(
-            rand::random::<f32>() * window_w - window_w / 2.0,
-            rand::random::<f32>() * window_h - window_h / 2.0,
-            10.0,
-        ),
-        GlobalTransform::default(),
-        Collider::rectangle(32., 32.),
+        InGameEntity,
+        ScoreText,
+        Score(0),
+        Text2d::new("Score: 0"),
+        text_font,
+        Transform::from_translation(Vec3::new(
+            // -window_w / 2.0 + 20.0,
+            0.,
+            window_h / 2.0 - 30.0,
+            0.0,
+        )),
     ));
 }
+
 
 fn food_collision_system(
     mut collision_event_reader: EventReader<CollisionStarted>,
     mut commands: Commands,
-    player_query: Query<(), With<Player>>,
+    player_query: Query<&Transform, With<Player>>,
     food_query: Query<(), With<Food>>,
     assets: Res<MyAssets>,  // ⬅ asset for apple
     window: Query<&Window>, // ⬅ to get screen size
+    mut query: Query<(&mut Score, &mut Text2d), With<ScoreText>>,
 ) {
     for CollisionStarted(entity1, entity2) in collision_event_reader.read() {
         let is_entity1_player = player_query.get(*entity1).is_ok();
@@ -163,7 +171,11 @@ fn food_collision_system(
             commands.entity(*entity1).despawn();
             println!("Player ate food (entity {:?})", entity1);
         }
-        spawn_food(&mut commands, &assets, window_w, window_h);
+        for (mut score, mut text) in &mut query {
+            score.0 += 1;
+            text.0 = format!("Score: {}", score.0);
+        }
+        spawn_food(&mut commands, &assets, window_w, window_h, &player_query);
     }
 }
 
@@ -223,110 +235,4 @@ fn transition_to_ingame(
             next_state.set(AppState::InGame);
         }
     }
-}
-
-fn toggle_pause(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<IsPaused>>,
-    mut next_state: ResMut<NextState<IsPaused>>,
-) {
-    if input.just_pressed(KeyCode::Escape) {
-        next_state.set(match current_state.get() {
-            IsPaused::Running => IsPaused::Paused,
-            IsPaused::Paused => IsPaused::Running,
-        });
-    }
-}
-
-pub fn setup_paused_screen(mut commands: Commands) {
-    commands
-        .spawn((
-            StateScoped(IsPaused::Paused),
-            Node {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Node {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.0),
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            ))
-            .with_children(|p| {
-                p.spawn(create_menu_button("Resume")).observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut next: ResMut<NextState<IsPaused>>| {
-                        trigger.propagate(false);
-                        next.set(IsPaused::Running)
-                    },
-                );
-
-                // Restart the Game
-                p.spawn(create_menu_button("Restart")).observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut next: ResMut<NextState<AppState>>| {
-                        trigger.propagate(false);
-                        next.set(AppState::InGameLoading)
-                    },
-                );
-
-                // Go to Main Menu
-                p.spawn(create_menu_button("Menu")).observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut next: ResMut<NextState<AppState>>| {
-                        trigger.propagate(false);
-                        next.set(AppState::MainMenu)
-                    },
-                );
-
-                // Exit Button
-                p.spawn(create_menu_button("Exit")).observe(
-                    |mut trigger: Trigger<Pointer<Released>>| {
-                        trigger.propagate(false);
-                        std::process::exit(0);
-                    },
-                );
-            });
-        });
-}
-
-// Helper function to create button
-fn create_menu_button(text: &str) -> impl Bundle {
-    (
-        // MainMenuButton,
-        Node {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BorderColor(Color::WHITE),
-        BorderRadius::all(Val::Percent(10.0)),
-        BackgroundColor(Color::srgb(0.2, 0.2, 0.2).into()),
-        Button,
-        children![(
-            Text::new(text),
-            TextFont {
-                font_size: 18.0,
-                ..default()
-            },
-        )],
-    )
 }

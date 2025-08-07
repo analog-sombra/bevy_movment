@@ -19,8 +19,11 @@ fn set_window_size_for_boot(mut window: Single<&mut Window>) {
     window.resolution.set(800.0, 600.0); // Set size for boot state
 }
 
-fn set_window_size_for_main_menu(mut window: Single<&mut Window>) {
-    window.resolution.set(1024.0, 768.0); // Set size for main menu state
+fn set_window_size_for_main_menu(mut window: Query<&mut Window, With<window::PrimaryWindow>>) {
+    if let Ok(mut window) = window.single_mut() {
+        window.resolution.set(1024.0, 768.0); // Set size for main menu state
+        window.mode = WindowMode::Windowed; // Ensure windowed mode for main menu
+    }
 }
 
 fn full_size_screen(mut window: Query<&mut Window, With<window::PrimaryWindow>>) {
