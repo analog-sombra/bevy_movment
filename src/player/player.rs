@@ -1,12 +1,13 @@
-use std::time::Duration;
-use crate::{player::food::{spawn_food, Food}, AppState, IsPaused, MyAssets};
+use crate::{
+    AppState, IsPaused, MyAssets,
+    player::food::{Food, spawn_food},
+};
 use avian2d::prelude::*;
 use bevy::prelude::*;
-
+use std::time::Duration;
 
 #[derive(Component, Default)]
 pub struct Direction(DIRECTION);
-
 
 #[derive(Default, PartialEq)]
 pub enum DIRECTION {
@@ -27,13 +28,12 @@ pub struct Ground;
 #[derive(Component)]
 pub struct InGameEntity;
 
-
 const SPEED: f32 = 140.0;
 
 pub struct PlayerPlugin;
 
 #[derive(Component)]
-pub struct Score(u32);
+pub struct Score(pub u32);
 
 #[derive(Component)]
 pub struct ScoreText;
@@ -143,7 +143,6 @@ pub fn spawn_player(
     ));
 }
 
-
 fn food_collision_system(
     mut collision_event_reader: EventReader<CollisionStarted>,
     mut commands: Commands,
@@ -205,7 +204,8 @@ pub fn player_input(
 pub fn player_movement(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Direction), With<Player>>,
-    _window: Query<&Window>,
+    window: Query<&Window>,
+    mut next_state: ResMut<NextState<IsPaused>>,
 ) {
     if let Ok((mut transform, direction)) = query.single_mut() {
         let mut translation = transform.translation;
@@ -216,6 +216,16 @@ pub fn player_movement(
             DIRECTION::Left => translation.x -= SPEED * time.delta_secs(),
         }
         transform.translation = translation;
+
+        // if user touch the border of the window change the state to GameOver
+        let window = window.single().unwrap();
+        let window_h = window.resolution.height();
+        let window_w = window.resolution.width();
+        if transform.translation.x.abs() > window_w / 2.0
+            || transform.translation.y.abs() > window_h / 2.0
+        {
+            next_state.set(IsPaused::GameOver);
+        }
     }
 }
 

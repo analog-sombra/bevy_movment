@@ -1,33 +1,18 @@
-use crate::{AppState, IsPaused};
+use crate::{AppState, IsPaused, player::player::Score};
 use bevy::prelude::*;
 
-pub struct PauseMenuPlugin;
+pub struct GameOverPlugin;
 
-impl Plugin for PauseMenuPlugin {
+impl Plugin for GameOverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (toggle_pause).run_if(in_state(AppState::InGame)))
-            .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen);
+        app.add_systems(OnEnter(IsPaused::GameOver), setup_game_over_screen);
     }
 }
 
-fn toggle_pause(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<IsPaused>>,
-    mut next_state: ResMut<NextState<IsPaused>>,
-) {
-    if input.just_pressed(KeyCode::Escape) {
-        next_state.set(match current_state.get() {
-            IsPaused::Running => IsPaused::Paused,
-            IsPaused::Paused => IsPaused::Running,
-            IsPaused::GameOver => IsPaused::GameOver, // Keep GameOver state unchanged
-        });
-    }
-}
-
-pub fn setup_paused_screen(mut commands: Commands) {
+pub fn setup_game_over_screen(mut commands: Commands, mut query: Query<&Score>) {
     commands
         .spawn((
-            StateScoped(IsPaused::Paused),
+            StateScoped(IsPaused::GameOver),
             Node {
                 // center button
                 width: Val::Percent(100.),
@@ -54,13 +39,33 @@ pub fn setup_paused_screen(mut commands: Commands) {
                 BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
             ))
             .with_children(|p| {
-                p.spawn(create_menu_button("Resume")).observe(
-                    |mut trigger: Trigger<Pointer<Released>>,
-                     mut next: ResMut<NextState<IsPaused>>| {
-                        trigger.propagate(false);
-                        next.set(IsPaused::Running)
-                    },
-                );
+                let gameover_font = TextFont {
+                    font_size: 32.0,
+                    ..default()
+                };
+
+                p.spawn((
+                    Text::new("Game Over"),
+                    gameover_font,
+                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                ));
+                
+                let score_font = TextFont {
+                    font_size: 24.0,
+                    ..default()
+                };
+
+                let mut bestscore = 0;
+                for score in &mut query {
+                    if score.0 > bestscore {
+                        bestscore = score.0;
+                    }
+                }
+                p.spawn((
+                    Text::new(format!("Score: {}", bestscore)),
+                    score_font,
+                    TextColor(Color::srgb(199.0 / 255.0, 236.0 / 255.0, 250.0 / 255.0)),
+                ));
 
                 // Restart the Game
                 p.spawn(create_menu_button("Restart")).observe(

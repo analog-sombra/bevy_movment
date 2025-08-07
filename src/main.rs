@@ -1,4 +1,5 @@
 use crate::booting::boot_screen::BootPlugin;
+use crate::gameui::gameover::GameOverPlugin;
 use crate::gameui::menu::MainMenuPlugin;
 use crate::gameui::pause::PauseMenuPlugin;
 use crate::player::player::PlayerPlugin;
@@ -29,7 +30,6 @@ pub enum AppState {
     InGameLoading,
     InGame,
     Paused,
-    GameOver,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
@@ -39,6 +39,7 @@ pub enum IsPaused {
     #[default]
     Running,
     Paused,
+    GameOver
 }
 
 #[derive(Resource, Default, AssetCollection)]
@@ -99,6 +100,7 @@ fn main() {
     .add_plugins(CustomWindowPlugin)
     .add_plugins(MainMenuPlugin)
     .add_plugins(PlayerPlugin)
+    .add_plugins(GameOverPlugin)
     .add_plugins(PauseMenuPlugin);
 
     app.run();
